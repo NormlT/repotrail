@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.ruff_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Database
+data/
+*.db
+*.sqlite
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# AI tooling
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+docs/superpowers/
+.superpowers/
+
+# Secrets / keys
+*.key
+*.pem
+secrets/
+credentials/
+
+# Node (defensive)
+node_modules/
+
+# Misc
+backups/
+settings.local.json
+*.log
