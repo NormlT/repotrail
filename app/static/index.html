@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RepoTrail</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --accent: #8b5cf6;
+      --green: #3fb950;
+      --orange: #d29922;
+      --red: #f85149;
+      --purple: #a78bfa;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    a { color: var(--accent); text-decoration: none; }
+
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; cursor: pointer; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .status-text { font-size: 12px; color: var(--muted); }
+
+    .controls {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 49px;
+      z-index: 99;
+    }
+    .controls label { font-size: 13px; color: var(--muted); }
+    .controls select {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .controls select:focus { border-color: var(--accent); outline: none; }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .toggle-label input { accent-color: var(--accent); }
+
+    .period-group { display: flex; gap: 4px; }
+    .period-btn {
+      background: var(--surface-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .period-btn:hover { color: var(--text); border-color: var(--muted); }
+    .period-btn.active { background: #8b5cf6; color: #fff; border-color: #8b5cf6; }
+
+    .refresh-btn, .back-btn {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .refresh-btn { margin-left: auto; }
+    .refresh-btn:hover, .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+
+    /* Overview page */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0 12px 0;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+    }
+    .section-divider:first-child { margin-top: 0; }
+    .section-divider::before, .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .repo-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 8px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .repo-row:hover { border-color: var(--accent); }
+    .repo-name { font-size: 15px; font-weight: 500; }
+    .repo-lang { font-size: 12px; color: var(--muted); margin-left: 8px; }
+    .repo-desc { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px; }
+    .repo-stats {
+      display: flex;
+      gap: 18px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .repo-stats span { white-space: nowrap; }
+    .repo-stats .val { color: var(--text); font-weight: 500; }
+
+    /* Detail page */
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+    .stat-card .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .chart-card h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; color: var(--muted); }
+    .chart-card canvas { width: 100% !important; }
+
+    .table-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .table-card h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; color: var(--muted); }
+    .table-card table { width: 100%; border-collapse: collapse; }
+    .table-card th, .table-card td { text-align: left; padding: 6px 8px; font-size: 13px; }
+    .table-card th { color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 500; }
+    .table-card td { border-bottom: 1px solid var(--border); }
+    .table-card tr:last-child td { border-bottom: none; }
+    .table-card .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .loading { text-align: center; padding: 60px; color: var(--muted); }
+    .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+    @media (max-width: 768px) {
+      .chart-row, .table-row { grid-template-columns: 1fr; }
+      .controls { gap: 10px; }
+      .stat-cards { grid-template-columns: repeat(3, 1fr); }
+      .repo-row { grid-template-columns: 1fr; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1 id="title">Repo<span style="color:#8b5cf6">Trail</span></h1>
+    <div class="header-right">
+      <span class="status-text" id="status-text">Loading...</span>
+    </div>
+  </header>
+
+  <div class="controls" id="controls-bar">
+    <label class="toggle-label">
+      <input type="checkbox" id="private-toggle" checked />
+      Include private
+    </label>
+
+    <button class="refresh-btn" id="refresh-btn" title="Refresh stats from GitHub">&#x21bb; Refresh</button>
+  </div>
+
+  <div class="main" id="main">
+    <div class="loading">Loading dashboard...</div>
+  </div>
+
+  <script>
+    var currentView = 'overview';
+    var currentRepo = null;
+    var currentPeriod = '1m';
+    var allRepos = [];
+    var viewsChart = null;
+    var snapshotChart = null;
+    var commitsChart = null;
+
+    var titleEl = document.getElementById('title');
+    var privateToggle = document.getElementById('private-toggle');
+    var refreshBtn = document.getElementById('refresh-btn');
+    var statusText = document.getElementById('status-text');
+    var controlsBar = document.getElementById('controls-bar');
+    var mainEl = document.getElementById('main');
+
+    async function api(endpoint) {
+      var resp = await fetch('/api/' + endpoint);
+      if (!resp.ok) {
+        var err = await resp.json().catch(function() { return { error: resp.statusText }; });
+        throw new Error(err.error || resp.statusText);
+      }
+      return resp.json();
+    }
+
+    function esc(s) {
+      var d = document.createElement('div');
+      d.textContent = s || '';
+      return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // --- Controls bar ---
+    function renderControls() {
+      if (currentView === 'overview') {
+        controlsBar.innerHTML =
+          '<label class="toggle-label">' +
+            '<input type="checkbox" id="private-toggle"' + (privateToggle.checked ? ' checked' : '') + ' />' +
+            ' Include private' +
+          '</label>' +
+          '<button class="refresh-btn" id="refresh-btn" title="Refresh stats from GitHub">&#x21bb; Refresh</button>';
+      } else {
+        controlsBar.innerHTML =
+          '<button class="back-btn" id="back-btn">&larr; All Repos</button>' +
+          '<label for="repo-select">Repository</label>' +
+          '<select id="repo-select"></select>' +
+          '<div class="period-group">' +
+            '<button class="period-btn' + (currentPeriod === '1w' ? ' active' : '') + '" data-period="1w">1W</button>' +
+            '<button class="period-btn' + (currentPeriod === '1m' ? ' active' : '') + '" data-period="1m">1M</button>' +
+            '<button class="period-btn' + (currentPeriod === '3m' ? ' active' : '') + '" data-period="3m">3M</button>' +
+            '<button class="period-btn' + (currentPeriod === '1y' ? ' active' : '') + '" data-period="1y">1Y</button>' +
+            '<button class="period-btn' + (currentPeriod === 'all' ? ' active' : '') + '" data-period="all">All</button>' +
+          '</div>' +
+          '<button class="refresh-btn" id="refresh-btn" title="Refresh stats from GitHub">&#x21bb; Refresh</button>';
+
+        // Populate dropdown
+        var sel = document.getElementById('repo-select');
+        allRepos.forEach(function(r) {
+          var opt = document.createElement('option');
+          opt.value = r.name;
+          opt.textContent = r.private ? r.name + ' (private)' : r.name;
+          if (r.name === currentRepo) opt.selected = true;
+          sel.appendChild(opt);
+        });
+
+        sel.addEventListener('change', function() {
+          currentRepo = sel.value;
+          loadDetail();
+        });
+
+        document.getElementById('back-btn').addEventListener('click', showOverview);
+
+        document.querySelectorAll('.period-btn').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            document.querySelectorAll('.period-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            currentPeriod = btn.dataset.period;
+            loadDetail();
+          });
+        });
+      }
+
+      // Re-bind shared controls
+      var pt = document.getElementById('private-toggle');
+      if (pt) {
+        privateToggle = pt;
+        pt.addEventListener('change', function() {
+          loadRepos().then(function() {
+            if (currentView === 'overview') renderOverview();
+          });
+        });
+      }
+      document.getElementById('refresh-btn').addEventListener('click', doRefresh);
+    }
+
+    // --- Load repos ---
+    async function loadRepos() {
+      var includePrivate = document.getElementById('private-toggle');
+      var checked = includePrivate ? includePrivate.checked : true;
+      var data = await api('repos?include_private=' + checked);
+      allRepos = data.repos;
+    }
+
+    // --- Overview ---
+    function showOverview() {
+      currentView = 'overview';
+      currentRepo = null;
+      renderControls();
+      renderOverview();
+    }
+
+    function renderOverview() {
+      if (allRepos.length === 0) {
+        mainEl.innerHTML = '<div class="empty">No repos found. Check your GITHUB_TOKEN and try refreshing.</div>';
+        return;
+      }
+
+      var publicRepos = allRepos.filter(function(r) { return !r.private; }).sort(function(a, b) { return a.name.localeCompare(b.name); });
+      var privateRepos = allRepos.filter(function(r) { return r.private; }).sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+      var html = '';
+
+      if (publicRepos.length > 0) {
+        html += '<div class="section-divider">PUBLIC</div>';
+        publicRepos.forEach(function(r) { html += repoRowHtml(r); });
+      }
+
+      if (privateRepos.length > 0) {
+        html += '<div class="section-divider">PRIVATE</div>';
+        privateRepos.forEach(function(r) { html += repoRowHtml(r); });
+      }
+
+      mainEl.innerHTML = html;
+
+      // Bind clicks
+      document.querySelectorAll('.repo-row').forEach(function(row) {
+        row.addEventListener('click', function() {
+          currentRepo = row.dataset.repo;
+          showDetail();
+        });
+      });
+    }
+
+    function repoRowHtml(r) {
+      var totalPrs = r.open_prs + r.closed_prs;
+      return '<div class="repo-row" data-repo="' + esc(r.name) + '">' +
+        '<div>' +
+          '<div><span class="repo-name">' + esc(r.name) + '</span>' +
+          (r.language ? '<span class="repo-lang">' + esc(r.language) + '</span>' : '') + '</div>' +
+          (r.description ? '<div class="repo-desc">' + esc(r.description) + '</div>' : '') +
+        '</div>' +
+        '<div class="repo-stats">' +
+          '<span><span class="val">' + r.stars + '</span> stars</span>' +
+          '<span><span class="val">' + r.total_views + '</span> views</span>' +
+          '<span><span class="val">' + totalPrs + '</span> PRs</span>' +
+          '<span><span class="val">' + r.open_issues + '</span> issues</span>' +
+        '</div>' +
+      '</div>';
+    }
+
+    // --- Detail ---
+    function showDetail() {
+      currentView = 'detail';
+      renderControls();
+      loadDetail();
+    }
+
+    async function loadDetail() {
+      if (!currentRepo) return;
+      mainEl.innerHTML = '<div class="loading">Loading stats...</div>';
+
+      try {
+        var results = await Promise.all([
+          api('repos/' + currentRepo + '/stats?period=' + currentPeriod),
+          api('repos/' + currentRepo + '/referrers'),
+          api('repos/' + currentRepo + '/paths'),
+        ]);
+        renderDetail(results[0], results[1].referrers, results[2].paths);
+      } catch (e) {
+        mainEl.innerHTML = '<div class="empty">Error loading stats: ' + esc(e.message) + '</div>';
+      }
+    }
+
+    function renderDetail(stats, referrers, paths) {
+      var c = stats.current;
+      var totalViews = stats.views.reduce(function(s, v) { return s + v.count; }, 0);
+      var totalUniqueViews = stats.views.reduce(function(s, v) { return s + v.uniques; }, 0);
+      var totalClones = stats.clones.reduce(function(s, v) { return s + v.count; }, 0);
+      var totalUniqueClones = stats.clones.reduce(function(s, v) { return s + v.uniques; }, 0);
+
+      mainEl.innerHTML =
+        '<div class="stat-cards">' +
+          '<div class="stat-card"><div class="label">Stars</div><div class="value">' + c.stars + '</div></div>' +
+          '<div class="stat-card"><div class="label">Forks</div><div class="value">' + c.forks + '</div></div>' +
+          '<div class="stat-card"><div class="label">Views</div><div class="value">' + totalViews + '</div><div class="sub">' + totalUniqueViews + ' unique</div></div>' +
+          '<div class="stat-card"><div class="label">Clones</div><div class="value">' + totalClones + '</div><div class="sub">' + totalUniqueClones + ' unique</div></div>' +
+          '<div class="stat-card"><div class="label">PRs</div><div class="value">' + c.open_prs + '</div><div class="sub">' + c.closed_prs + ' closed</div></div>' +
+          '<div class="stat-card"><div class="label">Issues</div><div class="value">' + c.open_issues + '</div></div>' +
+          '<div class="stat-card"><div class="label">Contributors</div><div class="value">' + c.contributors + '</div></div>' +
+        '</div>' +
+
+        '<div class="chart-row">' +
+          '<div class="chart-card"><h3>Views &amp; Clones</h3><canvas id="views-chart"></canvas></div>' +
+          '<div class="chart-card"><h3>Stars &amp; Forks Trend</h3><canvas id="snapshot-chart"></canvas></div>' +
+        '</div>' +
+
+        '<div class="chart-row">' +
+          '<div class="chart-card"><h3>Weekly Commits</h3><canvas id="commits-chart"></canvas></div>' +
+          '<div class="chart-card" style="display:flex;flex-direction:column;">' +
+            '<h3>Repo Info</h3>' +
+            '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;">' +
+              c.contributors + ' contributor' + (c.contributors !== 1 ? 's' : '') + ' &bull; ' +
+              (c.open_prs + c.closed_prs) + ' total PRs &bull; ' +
+              c.open_issues + ' open issues' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="table-row">' +
+          '<div class="table-card"><h3>Top Referrers</h3>' +
+            (referrers.length ?
+              '<table><thead><tr><th>Source</th><th class="num">Views</th><th class="num">Unique</th></tr></thead><tbody>' +
+              referrers.map(function(r) { return '<tr><td>' + esc(r.referrer) + '</td><td class="num">' + r.count + '</td><td class="num">' + r.uniques + '</td></tr>'; }).join('') +
+              '</tbody></table>' : '<div class="empty">No referrer data</div>') +
+          '</div>' +
+          '<div class="table-card"><h3>Popular Pages</h3>' +
+            (paths.length ?
+              '<table><thead><tr><th>Path</th><th class="num">Views</th><th class="num">Unique</th></tr></thead><tbody>' +
+              paths.map(function(p) { return '<tr><td>' + esc(p.path) + '</td><td class="num">' + p.count + '</td><td class="num">' + p.uniques + '</td></tr>'; }).join('') +
+              '</tbody></table>' : '<div class="empty">No page data</div>') +
+          '</div>' +
+        '</div>';
+
+      renderViewsChart(stats.views, stats.clones);
+      renderSnapshotChart(stats.snapshots);
+      renderCommitsChart(stats.commits);
+    }
+
+    // --- Charts ---
+    var chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { labels: { color: '#7d8590', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#7d8590', font: { size: 10 } }, grid: { color: '#21262d' }, beginAtZero: true },
+      },
+    };
+
+    function renderViewsChart(views, clones) {
+      var ctx = document.getElementById('views-chart');
+      if (!ctx) return;
+      if (viewsChart) viewsChart.destroy();
+
+      var dateSet = {};
+      views.forEach(function(v) { dateSet[v.date] = true; });
+      clones.forEach(function(c) { dateSet[c.date] = true; });
+      var allDates = Object.keys(dateSet).sort();
+
+      var viewMap = {};
+      views.forEach(function(v) { viewMap[v.date] = v; });
+      var cloneMap = {};
+      clones.forEach(function(c) { cloneMap[c.date] = c; });
+
+      viewsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: allDates,
+          datasets: [
+            {
+              label: 'Views',
+              data: allDates.map(function(d) { return viewMap[d] ? viewMap[d].count : 0; }),
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139,92,246,0.1)',
+              fill: true, tension: 0.3, pointRadius: 2,
+            },
+            {
+              label: 'Unique Views',
+              data: allDates.map(function(d) { return viewMap[d] ? viewMap[d].uniques : 0; }),
+              borderColor: '#a78bfa',
+              backgroundColor: 'rgba(167,139,250,0.1)',
+              fill: true, tension: 0.3, pointRadius: 2,
+            },
+            {
+              label: 'Clones',
+              data: allDates.map(function(d) { return cloneMap[d] ? cloneMap[d].count : 0; }),
+              borderColor: '#3fb950',
+              backgroundColor: 'rgba(63,185,80,0.1)',
+              fill: true, tension: 0.3, pointRadius: 2,
+            },
+          ],
+        },
+        options: chartDefaults,
+      });
+    }
+
+    function renderSnapshotChart(snapshots) {
+      var ctx = document.getElementById('snapshot-chart');
+      if (!ctx) return;
+      if (snapshotChart) snapshotChart.destroy();
+      if (snapshots.length === 0) return;
+
+      snapshotChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: snapshots.map(function(s) { return s.date; }),
+          datasets: [
+            { label: 'Stars', data: snapshots.map(function(s) { return s.stars; }), borderColor: '#d29922', tension: 0.3, pointRadius: 2 },
+            { label: 'Forks', data: snapshots.map(function(s) { return s.forks; }), borderColor: '#8b5cf6', tension: 0.3, pointRadius: 2 },
+          ],
+        },
+        options: chartDefaults,
+      });
+    }
+
+    function renderCommitsChart(commits) {
+      var ctx = document.getElementById('commits-chart');
+      if (!ctx) return;
+      if (commitsChart) commitsChart.destroy();
+      if (commits.length === 0) return;
+
+      commitsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: commits.map(function(c) { return c.week; }),
+          datasets: [{
+            label: 'Commits',
+            data: commits.map(function(c) { return c.total; }),
+            backgroundColor: 'rgba(63,185,80,0.6)',
+            borderColor: '#3fb950', borderWidth: 1,
+          }],
+        },
+        options: chartDefaults,
+      });
+    }
+
+    // --- Refresh ---
+    async function doRefresh() {
+      var btn = document.getElementById('refresh-btn');
+      btn.disabled = true;
+      btn.textContent = 'Fetching...';
+
+      try {
+        var includePrivate = document.getElementById('private-toggle');
+        var priv = includePrivate ? includePrivate.checked : true;
+        await fetch('/api/refresh?include_private=' + priv, { method: 'POST' });
+        var attempts = 0;
+        while (attempts < 120) {
+          await new Promise(function(r) { setTimeout(r, 2000); });
+          var st = await api('status');
+          updateStatus(st);
+          if (!st.is_fetching) break;
+          attempts++;
+        }
+        await loadRepos();
+        if (currentView === 'overview') renderOverview();
+        else loadDetail();
+      } catch (e) {
+        statusText.textContent = 'Refresh error: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '\u21bb Refresh';
+      }
+    }
+
+    function updateStatus(st) {
+      if (st.is_fetching) {
+        statusText.textContent = 'Fetching from GitHub...';
+      } else if (st.last_fetch) {
+        var d = new Date(st.last_fetch);
+        statusText.textContent = 'Updated ' + d.toLocaleString() + ' | ' + st.repos_fetched + ' repos | Rate: ' + st.rate_limit_remaining;
+      } else {
+        statusText.textContent = 'No data yet';
+      }
+    }
+
+    // --- Title click -> overview ---
+    titleEl.addEventListener('click', showOverview);
+
+    // --- Init ---
+    async function init() {
+      try {
+        var st = await api('status');
+        updateStatus(st);
+      } catch (e) {
+        statusText.textContent = 'Status unavailable';
+      }
+      await loadRepos();
+      showOverview();
+    }
+
+    init();
+  </script>
+</body>
+</html>
