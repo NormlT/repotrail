@@ -186,10 +186,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if auth == f"Bearer {settings.api_key}":
             return await call_next(request)
 
-        # Also accept ?api_key= query param for browser convenience
-        if request.query_params.get("api_key") == settings.api_key:
-            return await call_next(request)
-
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
 
