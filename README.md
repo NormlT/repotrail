@@ -46,7 +46,7 @@ All settings are read from a `.env` file (or environment variables).
 |----------|----------|---------|-------------|
 | `GITHUB_TOKEN` | Yes | -- | GitHub PAT with `repo` scope |
 | `GITHUB_OWNER` | Yes | -- | GitHub user or org to track (filters repos by owner) |
-| `API_KEY` | No | -- | Bearer token to protect the dashboard. If set, all `/api/` requests require `Authorization: Bearer <key>` header or `?api_key=<key>` query param |
+| `API_KEY` | No | -- | Bearer token to protect the dashboard. If set, all `/api/` requests require `Authorization: Bearer <key>` header |
 | `FETCH_INTERVAL_HOURS` | No | `6` | Hours between automatic fetches |
 | `PORT` | No | `8055` | Server port |
 | `DB_PATH` | No | `./data/repotrail.db` | SQLite database path |

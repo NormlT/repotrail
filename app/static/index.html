@@ -577,7 +577,17 @@
       try {
         var includePrivate = document.getElementById('private-toggle');
         var priv = includePrivate ? includePrivate.checked : true;
-        await fetch('/api/refresh?include_private=' + priv, { method: 'POST' });
+        var refreshResp = await fetch('/api/refresh?include_private=' + priv, { method: 'POST' });
+        if (refreshResp.status === 429) {
+          var errBody = await refreshResp.json().catch(function() { return {}; });
+          var st429 = await api('status');
+          updateStatus(st429);
+          if (!st429.is_fetching) {
+            statusText.textContent = errBody.detail || 'Refresh on cooldown, try again shortly';
+            return;
+          }
+          // Another fetch is already running — fall through and poll it
+        }
         var attempts = 0;
         while (attempts < 120) {
           await new Promise(function(r) { setTimeout(r, 2000); });
@@ -602,7 +612,8 @@
         statusText.textContent = 'Fetching from GitHub...';
       } else if (st.last_fetch) {
         var d = new Date(st.last_fetch);
-        statusText.textContent = 'Updated ' + d.toLocaleString() + ' | ' + st.repos_fetched + ' repos | Rate: ' + st.rate_limit_remaining;
+        var repoCount = allRepos.length > 0 ? allRepos.length : st.repos_fetched;
+        statusText.textContent = 'Updated ' + d.toLocaleString() + ' | ' + repoCount + ' repos | Rate: ' + st.rate_limit_remaining;
       } else {
         statusText.textContent = 'No data yet';
       }

@@ -74,5 +74,4 @@ exec uvicorn app.main:app \
   --port 8055 \
   --reload \
   --reload-dir app \
-  --reload-dir static \
   --log-level info
